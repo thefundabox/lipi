@@ -1,0 +1,11 @@
+.venv/
+__pycache__/
+*.pyc
+.DS_Store
+build/
+dist/
+.claude/
+# Test PDFs are large; recreate them with samples/make_samples.py and samples/make_hindi_samples.py
+samples/*.pdf
+samples/out/
+*.report.json

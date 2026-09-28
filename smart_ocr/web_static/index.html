@@ -1,0 +1,562 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lipi PDF to Text</title>
+<style>
+:root {
+  --bg: #f6f7f9; --surface: #ffffff; --surface-2: #f1f3f6; --border: #e3e6eb; --border-strong: #cfd4dc;
+  --text: #16181d; --muted: #5d6573; --faint: #8a93a3;
+  --accent: #3b5bdb; --accent-hover: #3049c0; --accent-soft: #eef2ff; --accent-text: #2c47b8;
+  --ok: #1f8a4c; --ok-soft: #e7f6ed; --warn: #b25e09; --warn-soft: #fff4e5; --err: #c92a2a; --err-soft: #fdecec;
+  --shadow: 0 1px 2px rgba(16,24,40,.05), 0 8px 24px rgba(16,24,40,.06);
+  --radius: 14px;
+  --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-deva: "Kohinoor Devanagari", "Noto Sans Devanagari", "Nirmala UI", "Mangal", var(--font);
+  --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0f1115; --surface: #171a20; --surface-2: #1e222a; --border: #2a2f39; --border-strong: #3a404c;
+    --text: #e8eaef; --muted: #a2a9b6; --faint: #737b89;
+    --accent: #6d8bff; --accent-hover: #859dff; --accent-soft: #1d2440; --accent-text: #a9b9ff;
+    --ok: #4cc27e; --ok-soft: #13291d; --warn: #f0a24a; --warn-soft: #2e2110; --err: #ff6b6b; --err-soft: #331616;
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.25);
+    color-scheme: dark;
+  }
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body { background: var(--bg); color: var(--text); font: 15px/1.5 var(--font); -webkit-font-smoothing: antialiased; }
+button, input, select, textarea { font: inherit; color: inherit; }
+button { cursor: pointer; }
+[hidden] { display: none !important; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* ---------- header ---------- */
+header.top { position: sticky; top: 0; z-index: 10; background: color-mix(in srgb, var(--bg) 85%, transparent);
+  backdrop-filter: blur(10px); border-bottom: 1px solid var(--border); }
+.top-inner { max-width: 1200px; margin: 0 auto; padding: 12px 20px; display: flex; align-items: center; gap: 16px; }
+.brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 18px; letter-spacing: -.01em; }
+.brand-mark { width: 32px; height: 32px; border-radius: 9px; background: var(--accent); color: #fff; display: grid; place-items: center;
+  font-family: var(--font-deva); font-size: 17px; font-weight: 600; }
+.brand small { font-weight: 500; color: var(--muted); font-size: 13px; }
+#quit { margin-left: 4px; }
+.status { margin-left: auto; display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+.chip { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px; font-size: 12.5px;
+  background: var(--surface); border: 1px solid var(--border); color: var(--muted); white-space: nowrap; }
+.dot { width: 7px; height: 7px; border-radius: 50%; background: var(--faint); flex: none; }
+.dot.ok { background: var(--ok); } .dot.off { background: var(--faint); } .dot.warn { background: var(--warn); }
+
+main { max-width: 1200px; margin: 0 auto; padding: 0 20px 60px; }
+
+/* ---------- upload view ---------- */
+.hero { display: grid; grid-template-columns: 1fr 1.1fr; gap: 48px; align-items: start; padding: 48px 0 32px; }
+.eyebrow { display: inline-flex; align-items: center; gap: 8px; padding: 5px 12px; border-radius: 999px; background: var(--accent-soft);
+  color: var(--accent-text); font-size: 13px; font-weight: 600; }
+h1 { font-size: clamp(32px, 4.4vw, 50px); line-height: 1.08; letter-spacing: -.025em; margin: 18px 0 16px; font-weight: 750; }
+h1 .accent { color: var(--accent); }
+h1 .deva { font-family: var(--font-deva); font-weight: 700; }
+.lede { color: var(--muted); font-size: 17px; max-width: 34em; margin: 0 0 22px; }
+.ticks { list-style: none; padding: 0; margin: 0; display: grid; gap: 10px; }
+.ticks li { display: flex; gap: 10px; align-items: flex-start; }
+.ticks svg { flex: none; margin-top: 3px; color: var(--ok); }
+.ticks b { font-weight: 600; }
+
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); }
+.upload-card { padding: 22px; }
+.drop { border: 2px dashed var(--border-strong); border-radius: 12px; padding: 34px 20px; text-align: center; background: var(--surface-2);
+  transition: border-color .15s, background .15s; cursor: pointer; }
+.drop:hover, .drop.drag { border-color: var(--accent); background: var(--accent-soft); }
+.drop-icon { width: 46px; height: 46px; margin: 0 auto 10px; border-radius: 12px; background: var(--surface); border: 1px solid var(--border);
+  display: grid; place-items: center; color: var(--accent); }
+.drop strong { display: block; font-size: 16px; }
+.drop span { color: var(--muted); font-size: 13.5px; }
+.link { color: var(--accent); font-weight: 600; }
+.file-row { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface-2); }
+.file-badge { width: 38px; height: 44px; border-radius: 7px; background: var(--err-soft); color: var(--err); display: grid; place-items: center;
+  font-size: 11px; font-weight: 700; flex: none; }
+.file-meta { min-width: 0; flex: 1; }
+.file-name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.file-size { color: var(--muted); font-size: 13px; }
+.icon-btn { border: 1px solid var(--border); background: var(--surface); border-radius: 8px; width: 32px; height: 32px; display: grid;
+  place-items: center; color: var(--muted); flex: none; }
+.icon-btn:hover { color: var(--text); border-color: var(--border-strong); }
+
+.field-label { display: block; font-weight: 600; font-size: 14px; margin: 22px 0 10px; }
+.field-label span { font-weight: 400; color: var(--muted); }
+.types { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
+.type { position: relative; text-align: left; display: flex; flex-direction: column; justify-content: flex-start; border: 1px solid var(--border); background: var(--surface); border-radius: 10px;
+  padding: 10px 12px; transition: border-color .12s, background .12s; }
+.type:hover { border-color: var(--border-strong); }
+.type[aria-checked="true"] { border-color: var(--accent); background: var(--accent-soft); box-shadow: 0 0 0 1px var(--accent) inset; }
+.type b { display: block; font-size: 14px; }
+.type small { display: block; color: var(--muted); font-size: 12px; line-height: 1.35; margin-top: 2px; }
+.type .tag { position: absolute; top: 8px; right: 8px; font-size: 10.5px; font-weight: 600; color: var(--warn); }
+.langs { display: flex; flex-wrap: wrap; gap: 6px; }
+.pill { border: 1px solid var(--border); background: var(--surface); border-radius: 999px; padding: 6px 14px; font-size: 14px; }
+.pill[aria-checked="true"] { background: var(--text); color: var(--bg); border-color: var(--text); }
+.pill .deva { font-family: var(--font-deva); }
+
+details.more { margin-top: 18px; border-top: 1px solid var(--border); padding-top: 12px; }
+details.more summary { cursor: pointer; color: var(--muted); font-size: 14px; font-weight: 500; }
+.more-grid { display: grid; gap: 14px; margin-top: 12px; }
+.inline-field { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.inline-field label { font-size: 14px; }
+.text-input { border: 1px solid var(--border); background: var(--surface); border-radius: 8px; padding: 7px 10px; width: 140px; }
+.toggle { display: flex; gap: 10px; align-items: flex-start; font-size: 14px; }
+.toggle input { margin-top: 3px; accent-color: var(--accent); }
+.toggle small { display: block; color: var(--muted); font-size: 12.5px; }
+
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; border-radius: 10px; padding: 10px 16px;
+  font-weight: 600; border: 1px solid var(--border); background: var(--surface); transition: background .12s, border-color .12s; white-space: nowrap; }
+.btn:hover { border-color: var(--border-strong); background: var(--surface-2); }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+.btn.primary:hover { background: var(--accent-hover); }
+.btn:disabled { opacity: .5; cursor: not-allowed; }
+.btn.block { width: 100%; padding: 13px 16px; font-size: 16px; margin-top: 20px; }
+.btn.sm { padding: 6px 11px; font-size: 13.5px; border-radius: 8px; }
+.form-error { color: var(--err); background: var(--err-soft); border-radius: 8px; padding: 8px 12px; font-size: 14px; margin-top: 12px; }
+
+.steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; padding: 12px 0 8px; }
+.step { padding: 20px; }
+.step-n { width: 28px; height: 28px; border-radius: 8px; background: var(--accent-soft); color: var(--accent-text); display: grid; place-items: center;
+  font-weight: 700; font-size: 14px; }
+.step h3 { margin: 12px 0 4px; font-size: 16px; }
+.step p { margin: 0; color: var(--muted); font-size: 14px; }
+
+/* ---------- workspace ---------- */
+.work-head { display: flex; align-items: center; gap: 14px; padding: 20px 0 14px; flex-wrap: wrap; }
+.work-title { min-width: 0; flex: 1; }
+.work-title h2 { margin: 0; font-size: 20px; letter-spacing: -.01em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.work-title p { margin: 2px 0 0; color: var(--muted); font-size: 13.5px; }
+.actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.progress-wrap { margin-bottom: 14px; padding: 14px 16px; }
+.progress-top { display: flex; justify-content: space-between; font-size: 14px; margin-bottom: 8px; gap: 12px; }
+.progress-top span:last-child { color: var(--muted); }
+.bar { height: 8px; border-radius: 99px; background: var(--surface-2); overflow: hidden; }
+.bar > i { display: block; height: 100%; width: 0; background: var(--accent); border-radius: 99px; transition: width .4s ease; }
+.bar.indeterminate > i { width: 30%; animation: slide 1.2s ease-in-out infinite; }
+@keyframes slide { 0% { margin-left: -30%; } 100% { margin-left: 100%; } }
+
+.strip { display: flex; gap: 8px; overflow-x: auto; padding: 2px 2px 12px; scrollbar-width: thin; }
+.thumb { flex: none; width: 64px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); padding: 4px; text-align: center;
+  font-size: 12px; color: var(--muted); position: relative; }
+.thumb img { display: block; width: 100%; height: 72px; object-fit: cover; object-position: top; border-radius: 4px; background: var(--surface-2); }
+.thumb .ph { height: 72px; border-radius: 4px; background: var(--surface-2); display: grid; place-items: center; }
+.thumb[aria-current="true"] { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; color: var(--accent-text); font-weight: 600; }
+.thumb .flag { position: absolute; top: 2px; right: 2px; width: 10px; height: 10px; border-radius: 50%; background: var(--warn); border: 2px solid var(--surface); }
+.thumb:disabled { cursor: default; opacity: .6; }
+
+.split { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; min-height: 60vh; }
+.pane { display: flex; flex-direction: column; overflow: hidden; }
+.pane-head { display: flex; align-items: center; gap: 8px; padding: 10px 14px; border-bottom: 1px solid var(--border); font-size: 13.5px;
+  color: var(--muted); min-height: 50px; flex-wrap: wrap; }
+.pane-head b { color: var(--text); font-weight: 600; }
+.pane-head .spacer { flex: 1; }
+.viewer { flex: 1; overflow: auto; background: var(--surface-2); padding: 16px; display: flex; justify-content: center; align-items: flex-start; max-height: 75vh; }
+.viewer img { width: calc(100% * var(--zoom, 1)); max-width: none; background: #fff; box-shadow: var(--shadow); border-radius: 2px; }
+.editor { flex: 1; width: 100%; border: 0; resize: none; padding: 18px 20px; background: var(--surface); font-size: 16px; line-height: 1.7;
+  min-height: 60vh; max-height: 75vh; outline: none; }
+.editor:lang(hi), .editor:lang(sa) { font-family: var(--font-deva); font-size: 17px; }
+.badge { display: inline-flex; align-items: center; gap: 5px; padding: 2px 8px; border-radius: 999px; font-size: 12px; font-weight: 600;
+  background: var(--surface-2); color: var(--muted); border: 1px solid var(--border); }
+.badge.good { background: var(--ok-soft); color: var(--ok); border-color: transparent; }
+.badge.warn { background: var(--warn-soft); color: var(--warn); border-color: transparent; }
+.notice { margin: 0; padding: 8px 14px; font-size: 13px; background: var(--warn-soft); color: var(--warn); border-bottom: 1px solid var(--border); }
+.notice.info { background: var(--accent-soft); color: var(--accent-text); }
+.edited { color: var(--accent-text); font-size: 12px; font-weight: 600; }
+.waiting { flex: 1; display: grid; place-items: center; color: var(--muted); padding: 40px; text-align: center; }
+.spinner { width: 26px; height: 26px; border: 3px solid var(--border); border-top-color: var(--accent); border-radius: 50%;
+  animation: spin .8s linear infinite; margin: 0 auto 10px; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.error-box { padding: 20px; color: var(--err); background: var(--err-soft); border-radius: 12px; margin-bottom: 14px; }
+
+.toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(20px); background: var(--text); color: var(--bg);
+  padding: 9px 16px; border-radius: 10px; font-size: 14px; opacity: 0; transition: .2s; pointer-events: none; z-index: 50; }
+.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+footer { text-align: center; color: var(--faint); font-size: 13px; padding: 30px 20px; }
+
+@media (max-width: 900px) {
+  .hero { grid-template-columns: 1fr; gap: 28px; padding-top: 28px; }
+  .steps { grid-template-columns: 1fr; }
+  .split { grid-template-columns: 1fr; }
+  .viewer { max-height: 50vh; }
+  .editor { min-height: 45vh; }
+  .status .chip.optional { display: none; }
+}
+@media (max-width: 520px) {
+  main, .top-inner { padding-left: 16px; padding-right: 16px; }
+  .brand small { display: none; }
+  .types { grid-template-columns: 1fr 1fr; }
+}
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="top-inner">
+    <div class="brand"><div class="brand-mark" aria-hidden="true">लि</div>Lipi <small>PDF to text</small></div>
+    <div class="status" id="status" aria-live="polite"></div>
+    <button class="btn sm" id="quit" title="Stop Lipi on this computer">Quit</button>
+  </div>
+</header>
+
+<main>
+  <!-- ================= UPLOAD ================= -->
+  <section id="view-upload">
+    <div class="hero">
+      <div>
+        <span class="eyebrow">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+          Runs on your computer
+        </span>
+        <h1>Turn any PDF into <span class="accent">editable text</span>, in <span class="deva">हिन्दी</span> and English</h1>
+        <p class="lede">Scans, phone photos, faded photocopies or digital files. Tell Lipi what kind of document it is, and it tunes the OCR for that input. Then check every page side by side with the original.</p>
+        <ul class="ticks">
+          <li><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg><span><b>Hindi, English and mixed pages.</b> Also catches broken Hindi text layers (such as Kruti Dev) and re-reads them.</span></li>
+          <li><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg><span><b>Private by default.</b> Files stay on this machine unless you turn on Claude for hard pages.</span></li>
+          <li><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg><span><b>Review, edit, export.</b> Low-confidence pages are flagged. Download as Word, Markdown or plain text.</span></li>
+        </ul>
+      </div>
+
+      <form class="card upload-card" id="form" novalidate>
+        <input type="file" id="file" accept="application/pdf,.pdf" hidden>
+        <div class="drop" id="drop" role="button" tabindex="0" aria-label="Choose a PDF to upload">
+          <div class="drop-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m17 8-5-5-5 5"/><path d="M12 3v12"/></svg></div>
+          <strong>Drop your PDF here</strong>
+          <span>or <span class="link">browse files</span> · up to <span id="max-mb">200</span> MB</span>
+        </div>
+        <div class="file-row" id="file-row" hidden>
+          <div class="file-badge">PDF</div>
+          <div class="file-meta"><div class="file-name" id="file-name"></div><div class="file-size" id="file-size"></div></div>
+          <button type="button" class="icon-btn" id="file-clear" aria-label="Remove file"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+        </div>
+
+        <span class="field-label" id="type-label">What kind of document is it?</span>
+        <div class="types" id="types" role="radiogroup" aria-labelledby="type-label"></div>
+
+        <span class="field-label" id="lang-label">Language</span>
+        <div class="langs" id="langs" role="radiogroup" aria-labelledby="lang-label"></div>
+
+        <details class="more">
+          <summary>More options</summary>
+          <div class="more-grid">
+            <div class="inline-field">
+              <label for="pages">Pages</label>
+              <input class="text-input" id="pages" placeholder="All, or e.g. 1-3,7" inputmode="numeric">
+            </div>
+            <label class="toggle">
+              <input type="checkbox" id="spellfix" checked>
+              <span>Fix common Hindi OCR slips
+                <small>Uses a Hindi dictionary to repair words like द्ारा → द्वारा. Every change is listed on its page.</small></span>
+            </label>
+            <label class="toggle">
+              <input type="checkbox" id="cloud">
+              <span>Use Claude for hard pages
+                <small id="cloud-note">Sends page images to the Anthropic API. Costs per page.</small></span>
+            </label>
+          </div>
+        </details>
+
+        <div class="form-error" id="form-error" hidden></div>
+        <button class="btn primary block" id="submit" type="submit" disabled>Convert to text</button>
+      </form>
+    </div>
+
+    <div class="steps">
+      <div class="card step"><div class="step-n">1</div><h3>Upload and describe</h3><p>Pick the PDF and say what it is: a clean scan, a phone photo, a faded photocopy, tables or handwriting.</p></div>
+      <div class="card step"><div class="step-n">2</div><h3>Tuned OCR runs</h3><p>Each type gets its own resolution, cleanup and engine. Hard pages can go to a stronger model.</p></div>
+      <div class="card step"><div class="step-n">3</div><h3>Check and export</h3><p>Compare each page with the original, fix anything flagged, then export to Word, Markdown or text.</p></div>
+    </div>
+  </section>
+
+  <!-- ================= WORKSPACE ================= -->
+  <section id="view-work" hidden>
+    <div class="work-head">
+      <button class="icon-btn" id="back" aria-label="Convert another document" title="Convert another document"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg></button>
+      <div class="work-title"><h2 id="w-name"></h2><p id="w-meta"></p></div>
+      <div class="actions" id="exports">
+        <button class="btn sm" data-copy="all">Copy all</button>
+        <button class="btn sm" data-export="txt">.txt</button>
+        <button class="btn sm" data-export="md">.md</button>
+        <button class="btn sm primary" data-export="docx">Word (.docx)</button>
+      </div>
+    </div>
+
+    <div class="card progress-wrap" id="progress">
+      <div class="progress-top"><span id="p-label">Starting…</span><span id="p-count"></span></div>
+      <div class="bar indeterminate" id="p-bar"><i></i></div>
+    </div>
+    <div class="error-box" id="w-error" hidden></div>
+
+    <nav class="strip" id="strip" aria-label="Pages"></nav>
+
+    <div class="split">
+      <div class="card pane">
+        <div class="pane-head"><b>Original</b><span id="orig-page"></span><span class="spacer"></span>
+          <button class="icon-btn" id="zoom-out" aria-label="Zoom out">−</button>
+          <button class="icon-btn" id="zoom-in" aria-label="Zoom in">+</button>
+        </div>
+        <div class="viewer" id="viewer"><img id="page-img" alt=""></div>
+      </div>
+      <div class="card pane">
+        <div class="pane-head"><b>Text</b><span id="t-badges"></span><span class="edited" id="edited" hidden>Edited</span><span class="spacer"></span>
+          <button class="btn sm" data-copy="page">Copy page</button>
+        </div>
+        <p class="notice" id="t-notice" hidden></p>
+        <textarea class="editor" id="editor" spellcheck="false" aria-label="Recognized text for this page" hidden></textarea>
+        <div class="waiting" id="t-wait"><div><div class="spinner"></div>Reading this page…</div></div>
+      </div>
+    </div>
+  </section>
+</main>
+<footer>Lipi runs locally with RapidOCR (PP-OCRv5); Claude is optional.</footer>
+<div class="toast" id="toast" role="status"></div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const state = { options: null, file: null, type: "clean_scan", lang: "en", job: null, current: null, edits: {}, zoom: 1, timer: null };
+
+// ---------- helpers ----------
+function toast(msg) { const t = $("toast"); t.textContent = msg; t.classList.add("show"); clearTimeout(toast._t); toast._t = setTimeout(() => t.classList.remove("show"), 1800); }
+function fmtSize(b) { return b > 1048576 ? (b / 1048576).toFixed(1) + " MB" : Math.max(1, Math.round(b / 1024)) + " KB"; }
+function el(tag, attrs = {}, ...kids) {
+  const n = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs)) {
+    if (k === "class") n.className = v; else if (k.startsWith("on")) n.addEventListener(k.slice(2), v);
+    else if (k.startsWith("aria-")) n.setAttribute(k, String(v));
+    else if (v !== false && v != null) n.setAttribute(k, v === true ? "" : v);
+  }
+  kids.flat().forEach(c => c != null && n.append(c));
+  return n;
+}
+function radioGroup(container, items, selected, onPick, render) {
+  container.replaceChildren(...items.map(item => {
+    const b = render(item);
+    b.type = "button"; b.setAttribute("role", "radio"); b.dataset.key = item.key;
+    b.setAttribute("aria-checked", item.key === selected);
+    b.tabIndex = item.key === selected ? 0 : -1;
+    b.addEventListener("click", () => {
+      container.querySelectorAll("[role=radio]").forEach(x => { x.setAttribute("aria-checked", x === b); x.tabIndex = x === b ? 0 : -1; });
+      onPick(item.key);
+    });
+    return b;
+  }));
+  container.addEventListener("keydown", e => {
+    if (!["ArrowRight", "ArrowDown", "ArrowLeft", "ArrowUp"].includes(e.key)) return;
+    const btns = [...container.querySelectorAll("[role=radio]")];
+    const i = btns.indexOf(document.activeElement); if (i < 0) return;
+    const next = btns[(i + (e.key === "ArrowRight" || e.key === "ArrowDown" ? 1 : btns.length - 1)) % btns.length];
+    next.focus(); next.click(); e.preventDefault();
+  });
+}
+const pageText = (p) => state.edits[p.number] ?? p.text;
+function allText(format) {
+  const pages = state.job?.pages || [];
+  if (format === "md") return pages.map(p => `## Page ${p.number}\n\n${pageText(p)}`).join("\n\n") + "\n";
+  return pages.map(p => `===== Page ${p.number} =====\n${pageText(p)}`).join("\n\n") + "\n";
+}
+function download(blob, name) {
+  const a = el("a", { href: URL.createObjectURL(blob), download: name }); document.body.append(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+const stem = () => (state.job?.filename || "converted").replace(/\.pdf$/i, "");
+
+// ---------- setup ----------
+async function init() {
+  const o = await (await fetch("/api/options")).json();
+  state.options = o;
+  $("max-mb").textContent = o.max_upload_mb;
+  $("status").replaceChildren(
+    el("span", { class: "chip" }, el("span", { class: "dot ok" }), "Local OCR ready"),
+    el("span", { class: "chip optional", title: o.cloud_status }, el("span", { class: "dot " + (o.cloud_available ? "ok" : "off") }),
+      o.cloud_available ? "Claude available" : "Claude not set up"));
+  if (!o.cloud_available) { $("cloud").disabled = true; $("cloud-note").textContent = "Not set up. Set ANTHROPIC_API_KEY before starting Lipi to enable it."; }
+
+  radioGroup($("types"), o.types, state.type, k => { state.type = k; syncCloud(); }, t =>
+    el("button", { class: "type", title: t.description }, el("b", {}, t.label), el("small", {}, t.description),
+      t.needs_cloud ? el("span", { class: "tag" }, "needs Claude") : null));
+  radioGroup($("langs"), o.languages, state.lang, k => state.lang = k, l =>
+    el("button", { class: "pill" }, /[ऀ-ॿ]/.test(l.label) ? el("span", { class: "deva" }, l.label) : l.label));
+  // Show Hindi names alongside English ones.
+  const deva = { hi: "हिन्दी", "en+hi": "English + हिन्दी", sa: "संस्कृत", ur: "اردو" };
+  $("langs").querySelectorAll(".pill").forEach(p => { if (deva[p.dataset.key]) p.replaceChildren(el("span", { class: "deva" }, deva[p.dataset.key])); });
+}
+function syncCloud() {
+  const t = state.options.types.find(t => t.key === state.type);
+  if (t.needs_cloud && state.options.cloud_available) $("cloud").checked = true;
+}
+
+// ---------- file picking ----------
+function setFile(f) {
+  $("form-error").hidden = true;
+  if (f && !/\.pdf$/i.test(f.name) && f.type !== "application/pdf") { showFormError("Please choose a PDF file."); return; }
+  const maxMb = state.options?.max_upload_mb ?? 200;
+  if (f && f.size > maxMb * 1048576) { showFormError(`That file is over ${maxMb} MB.`); return; }
+  state.file = f || null;
+  $("drop").hidden = !!f; $("file-row").hidden = !f;
+  if (f) { $("file-name").textContent = f.name; $("file-size").textContent = fmtSize(f.size); }
+  $("submit").disabled = !f;
+}
+function showFormError(msg) { $("form-error").textContent = msg; $("form-error").hidden = false; }
+$("drop").addEventListener("click", () => $("file").click());
+$("drop").addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); $("file").click(); } });
+$("file").addEventListener("change", e => setFile(e.target.files[0]));
+$("file-clear").addEventListener("click", () => { $("file").value = ""; setFile(null); });
+["dragenter", "dragover"].forEach(ev => document.addEventListener(ev, e => { e.preventDefault(); if (!$("view-upload").hidden) $("drop").classList.add("drag"); }));
+["dragleave", "drop"].forEach(ev => document.addEventListener(ev, e => { e.preventDefault(); $("drop").classList.remove("drag"); }));
+document.addEventListener("drop", e => { if (!$("view-upload").hidden && e.dataTransfer.files[0]) setFile(e.dataTransfer.files[0]); });
+
+// ---------- submit ----------
+$("form").addEventListener("submit", async e => {
+  e.preventDefault();
+  if (!state.file) return;
+  const t = state.options.types.find(t => t.key === state.type);
+  if (t.needs_cloud && !$("cloud").checked) {
+    showFormError(`"${t.label}" needs Claude. ${state.options.cloud_available ? 'Tick "Use Claude for hard pages" under More options.' : "Claude isn't set up on this computer yet."}`);
+    return;
+  }
+  const fd = new FormData();
+  fd.append("file", state.file); fd.append("type", state.type); fd.append("lang", state.lang);
+  fd.append("pages", $("pages").value); fd.append("allow_cloud", $("cloud").checked ? "1" : "0");
+  fd.append("spellfix", $("spellfix").checked ? "1" : "0");
+  $("submit").disabled = true; $("submit").textContent = "Uploading…";
+  try {
+    const r = await fetch("/api/jobs", { method: "POST", body: fd });
+    const data = await r.json();
+    if (!r.ok) throw new Error(data.error || "Upload failed.");
+    startJob(data.id);
+  } catch (err) { showFormError(err.message); }
+  finally { $("submit").disabled = !state.file; $("submit").textContent = "Convert to text"; }
+});
+
+// ---------- workspace ----------
+function startJob(id) {
+  state.job = null; state.current = null; state.edits = {}; state.zoom = 1; applyZoom();
+  $("view-upload").hidden = true; $("view-work").hidden = false; $("w-error").hidden = true;
+  $("strip").replaceChildren(); $("editor").hidden = true; $("t-wait").hidden = false; $("page-img").removeAttribute("src");
+  window.scrollTo(0, 0);
+  const poll = async () => {
+    try {
+      const r = await fetch(`/api/jobs/${id}`);
+      if (!r.ok) throw new Error("This job is no longer available.");
+      renderJob(await r.json());
+      if (["done", "error"].includes(state.job.status)) return;
+    } catch (err) { $("w-error").textContent = err.message; $("w-error").hidden = false; return; }
+    state.timer = setTimeout(poll, 800);
+  };
+  clearTimeout(state.timer); poll();
+}
+
+function renderJob(job) {
+  const first = !state.job;
+  state.job = job;
+  $("w-name").textContent = job.filename;
+  $("w-meta").textContent = `${job.type} · ${job.language} · ${job.total} page${job.total === 1 ? "" : "s"}`;
+
+  const bar = $("p-bar");
+  const pct = job.total ? Math.round(job.done / job.total * 100) : 0;
+  bar.classList.toggle("indeterminate", job.status === "queued" || (job.status === "running" && job.done === 0));
+  bar.firstElementChild.style.width = pct + "%";
+  const review = job.pages.filter(p => p.review).length;
+  $("p-label").textContent = {
+    queued: "Waiting for the previous document to finish…",
+    running: job.done === 0 ? "Loading OCR models and reading page 1…" : "Reading pages…",
+    done: review ? `Done. ${review} page${review === 1 ? "" : "s"} marked for review.` : "Done. All pages read with good confidence.",
+    error: "Stopped because of an error.",
+  }[job.status];
+  $("p-count").textContent = `${job.done} / ${job.total}`;
+  if (job.status === "error") { $("w-error").textContent = job.error; $("w-error").hidden = false; }
+  $("exports").querySelectorAll("button").forEach(b => b.disabled = job.pages.length === 0);
+
+  // thumbnails: finished pages are clickable, the rest are placeholders
+  const strip = $("strip");
+  const doneNums = new Set(job.pages.map(p => p.number));
+  if (first || strip.children.length !== job.total || strip.querySelectorAll(".thumb:disabled").length !== job.total - job.pages.length) {
+    const numbers = job.pages.map(p => p.number);
+    const pending = Math.max(0, job.total - numbers.length);
+    const thumbs = job.pages.map(p => el("button", { class: "thumb", "aria-label": `Page ${p.number}`, "aria-current": p.number === state.current, onclick: () => showPage(p.number) },
+      el("img", { src: `/api/jobs/${job.id}/page/${p.number}.png`, alt: "", loading: "lazy" }), p.review ? el("span", { class: "flag", title: "Needs review" }) : null, p.number));
+    for (let i = 0; i < pending; i++) thumbs.push(el("button", { class: "thumb", disabled: true }, el("div", { class: "ph" }, el("div", { class: "spinner", style: "width:16px;height:16px;border-width:2px;margin:0" })), "…"));
+    strip.replaceChildren(...thumbs);
+  }
+  if (state.current == null && job.pages.length) showPage(job.pages[0].number);
+  if (job.pages.length === 0 && job.status === "done") { $("t-wait").textContent = "No pages were converted."; }
+}
+
+function showPage(n) {
+  const p = state.job.pages.find(p => p.number === n); if (!p) return;
+  state.current = n;
+  $("strip").querySelectorAll(".thumb").forEach(t => t.setAttribute("aria-current", t.getAttribute("aria-label") === `Page ${n}`));
+  $("page-img").src = `/api/jobs/${state.job.id}/page/${n}.png`;
+  $("page-img").alt = `Original page ${n}`;
+  $("orig-page").textContent = `Page ${n}`;
+  const source = { "text-layer": "PDF text layer", "legacy-font": "Kruti Dev / DevLys text", rapidocr: "RapidOCR", tesseract: "Tesseract", claude: "Claude", none: "no engine" }[p.source] || p.source;
+  const conf = Math.round(p.confidence * 100);
+  $("t-badges").replaceChildren(
+    el("span", { class: "badge" }, source),
+    el("span", { class: "badge " + (p.review ? "warn" : "good") }, ["text-layer", "legacy-font"].includes(p.source) ? "exact" : `${conf}% confidence`));
+  const note = p.review ? "Low confidence. Compare this page with the original and correct anything that's off." : p.note;
+  $("t-notice").hidden = !note; $("t-notice").textContent = note || "";
+  $("t-notice").classList.toggle("info", !p.review);
+  const ed = $("editor");
+  ed.lang = state.job.lang === "en" ? "en" : (state.job.lang === "en+hi" ? "hi" : state.job.lang);
+  ed.dir = state.job.lang === "ur" ? "rtl" : "ltr";
+  ed.value = pageText(p); ed.hidden = false; $("t-wait").hidden = true;
+  $("edited").hidden = !(n in state.edits);
+}
+$("editor").addEventListener("input", e => {
+  const p = state.job.pages.find(p => p.number === state.current);
+  if (e.target.value === p.text) delete state.edits[p.number]; else state.edits[p.number] = e.target.value;
+  $("edited").hidden = !(p.number in state.edits);
+});
+
+function applyZoom() { $("page-img").style.setProperty("--zoom", state.zoom); }
+$("zoom-in").addEventListener("click", () => { state.zoom = Math.min(3, state.zoom + .25); applyZoom(); });
+$("zoom-out").addEventListener("click", () => { state.zoom = Math.max(.5, state.zoom - .25); applyZoom(); });
+
+document.addEventListener("keydown", e => {
+  if ($("view-work").hidden || document.activeElement === $("editor") || !state.job) return;
+  const nums = state.job.pages.map(p => p.number), i = nums.indexOf(state.current);
+  if (e.key === "ArrowRight" && i < nums.length - 1) showPage(nums[i + 1]);
+  if (e.key === "ArrowLeft" && i > 0) showPage(nums[i - 1]);
+});
+
+document.querySelectorAll("[data-copy]").forEach(b => b.addEventListener("click", async () => {
+  const text = b.dataset.copy === "all" ? allText("txt") : $("editor").value;
+  try { await navigator.clipboard.writeText(text); toast("Copied"); } catch { toast("Copy failed. Select the text and press Cmd+C."); }
+}));
+document.querySelectorAll("[data-export]").forEach(b => b.addEventListener("click", async () => {
+  const fmt = b.dataset.export;
+  if (fmt !== "docx") return download(new Blob([allText(fmt)], { type: "text/plain;charset=utf-8" }), `${stem()}.${fmt}`);
+  b.disabled = true;
+  try {
+    const r = await fetch("/api/export/docx", { method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ filename: state.job.filename, pages: state.job.pages.map(p => ({ number: p.number, text: pageText(p) })) }) });
+    if (!r.ok) throw new Error();
+    download(await r.blob(), `${stem()}.docx`);
+  } catch { toast("Word export failed"); } finally { b.disabled = false; }
+}));
+
+$("back").addEventListener("click", () => {
+  if (Object.keys(state.edits).length && !confirm("Leave this document? Your edits haven't been exported.")) return;
+  clearTimeout(state.timer);
+  $("view-work").hidden = true; $("view-upload").hidden = false; $("file").value = ""; setFile(null);
+});
+window.addEventListener("beforeunload", e => { if (Object.keys(state.edits).length) e.preventDefault(); });
+
+$("quit").addEventListener("click", async () => {
+  if (!confirm("Quit Lipi? Documents on this page will be closed.")) return;
+  try { await fetch("/api/quit", { method: "POST" }); } catch {}
+  document.querySelector("main").replaceChildren(el("div", { class: "card", style: "padding:40px;margin:60px auto;max-width:520px;text-align:center" },
+    el("h2", { style: "margin-top:0" }, "Lipi has stopped"), el("p", { class: "lede", style: "margin:0 auto" }, "You can close this tab. Open Lipi again to convert more PDFs.")));
+  $("status").replaceChildren(); $("quit").remove();
+});
+
+init().catch(() => showFormError("Couldn't reach the Lipi server. Is it still running?"));
+</script>
+</body>
+</html>

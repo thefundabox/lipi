@@ -1,0 +1,12 @@
+pymupdf>=1.24
+numpy
+pillow
+# Keep a single OpenCV package (rapidocr depends on opencv-python; installing -headless too causes crashes).
+# 4.x only: OpenCV 5 is untested with rapidocr.
+opencv-python>=4.8,<5
+rapidocr>=3.9,<4      # PP-OCRv5 models incl. Devanagari (Hindi/Sanskrit); downloaded on first use
+onnxruntime>=1.18
+pytesseract>=0.3.10   # also needs the tesseract binary: brew install tesseract tesseract-lang
+anthropic>=1.8        # optional: Claude vision for handwriting, tables and badly degraded pages
+python-docx>=1.1    # web UI: Word export
+flask>=3.0          # web UI
